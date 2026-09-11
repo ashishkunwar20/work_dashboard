@@ -70,7 +70,8 @@
 <div id="package-modal" class="modal-overlay" hidden>
   <div class="modal">
     <h2 id="package-modal-title">Add Package</h2>
-    <form id="package-form">
+    <form id="package-form" novalidate>
+      <div class="form-error" hidden></div>
       <input type="hidden" id="package-id" />
       <label>Package name *
         <input id="package-name" type="text" required placeholder="e.g. Shaft 2 – Ventilation" />
@@ -102,7 +103,8 @@
 <div id="task-modal" class="modal-overlay" hidden>
   <div class="modal">
     <h2 id="task-modal-title">Add Task</h2>
-    <form id="task-form">
+    <form id="task-form" novalidate>
+      <div class="form-error" hidden></div>
       <input type="hidden" id="task-id" />
       <input type="hidden" id="task-package-id" />
       <label>Task / action *

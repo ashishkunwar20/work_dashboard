@@ -145,7 +145,15 @@
   }
 
   // ---------- cloud (account) sync ----------
-  var cloud = { docRef: null, active: false, saveTimer: null, applyingRemote: false };
+  // `localDirty` tracks an edit that has been made locally but not yet
+  // confirmed written to the server (still sitting in the debounce timer,
+  // or the write is in flight). While true, incoming snapshots are NOT
+  // applied — otherwise a stale/late snapshot could silently overwrite an
+  // in-memory edit the user just made (e.g. a package or task that was
+  // just added but hasn't reached the server yet), which then makes a
+  // *subsequent* save on that item look like it "does nothing" because
+  // the item it's referencing has vanished from state.
+  var cloud = { docRef: null, active: false, saveTimer: null, applyingRemote: false, localDirty: false };
 
   function setSyncStatus(mode) {
     var el = document.getElementById("sync-status");
@@ -188,6 +196,7 @@
           cloud.docRef.onSnapshot(
             function (snap) {
               if (snap.metadata.hasPendingWrites) return;
+              if (cloud.localDirty) return;
               if (snap.exists && snap.data()) {
                 cloud.applyingRemote = true;
                 state.data = normalizeData(snap.data());
@@ -210,13 +219,20 @@
 
   function cloudScheduleSave() {
     if (!cloud.active || !cloud.docRef || cloud.applyingRemote) return;
+    cloud.localDirty = true;
     setSyncStatus("syncing");
     clearTimeout(cloud.saveTimer);
     cloud.saveTimer = setTimeout(function () {
+      var payload = state.data;
       cloud.docRef
-        .set(state.data)
-        .then(function () { setSyncStatus("cloud"); })
-        .catch(function () { setSyncStatus("local"); });
+        .set(payload)
+        .then(function () {
+          if (state.data === payload) cloud.localDirty = false;
+          setSyncStatus("cloud");
+        })
+        .catch(function () {
+          setSyncStatus("local");
+        });
     }, 500);
   }
 
@@ -376,6 +392,7 @@
             '<div class="stat-chips">' + chips.join("") + '</div>' +
             '<div class="package-card-actions">' +
               '<button class="icon-btn" data-edit-package="' + pkg.id + '">Edit</button>' +
+              '<button class="icon-btn icon-btn-danger" data-remove-package="' + pkg.id + '">Remove</button>' +
             '</div>' +
           '</div>' +
           tableHtml +
@@ -488,16 +505,17 @@
   });
 
   // ---------- events: main (delegated) ----------
+  // NOTE: check specific action targets (edit/remove/add/complete) before the
+  // generic [data-toggle] header, since those buttons live inside the header
+  // and would otherwise always match the toggle first via closest().
   el.main.addEventListener("click", function (e) {
     var t;
-    if ((t = e.target.closest("[data-toggle]"))) {
-      var id = t.getAttribute("data-toggle");
-      state.openPackages[id] = !state.openPackages[id];
-      render();
-      return;
-    }
     if ((t = e.target.closest("[data-edit-package]"))) {
       openPackageModal(t.getAttribute("data-edit-package"));
+      return;
+    }
+    if ((t = e.target.closest("[data-remove-package]"))) {
+      deletePackage(t.getAttribute("data-remove-package"));
       return;
     }
     if ((t = e.target.closest("[data-add-task]"))) {
@@ -516,6 +534,12 @@
         persist();
         render();
       }
+      return;
+    }
+    if ((t = e.target.closest("[data-toggle]"))) {
+      var id = t.getAttribute("data-toggle");
+      state.openPackages[id] = !state.openPackages[id];
+      render();
       return;
     }
     if ((t = e.target.closest("#empty-add-package"))) {
@@ -553,29 +577,44 @@
 
   pkgForm.addEventListener("submit", function (e) {
     e.preventDefault();
-    var id = pkgIdField.value;
-    var pkg = id ? findPackage(id) : null;
-    if (!pkg) {
-      pkg = { id: uid(), tasks: [] };
-      state.data.packages.push(pkg);
+    clearFormError(pkgForm);
+    if (!pkgNameField.value.trim()) {
+      showFormError(pkgForm, "Please enter a package name.");
+      pkgNameField.focus();
+      return;
     }
-    pkg.name = pkgNameField.value.trim() || "Untitled Package";
-    pkg.code = pkgCodeField.value.trim();
-    pkg.description = pkgDescField.value.trim();
-    pkg.status = pkgStatusField.value;
-    persist();
-    closeModal(pkgModal);
-    render();
+    try {
+      var id = pkgIdField.value;
+      var pkg = id ? findPackage(id) : null;
+      if (!pkg) {
+        pkg = { id: uid(), tasks: [] };
+        state.data.packages.push(pkg);
+      }
+      pkg.name = pkgNameField.value.trim() || "Untitled Package";
+      pkg.code = pkgCodeField.value.trim();
+      pkg.description = pkgDescField.value.trim();
+      pkg.status = pkgStatusField.value;
+      persist();
+      closeModal(pkgModal);
+      render();
+    } catch (err) {
+      console.error(err);
+      showFormError(pkgForm, "Something went wrong saving this package. Please try again.");
+    }
   });
 
-  pkgDeleteBtn.addEventListener("click", function () {
-    var id = pkgIdField.value;
-    if (!id) return;
-    if (!confirm("Delete this package and all its tasks? This cannot be undone.")) return;
+  function deletePackage(id) {
+    var pkg = findPackage(id);
+    if (!pkg) return;
+    if (!confirm('Delete "' + pkg.name + '" and all its tasks? This cannot be undone.')) return;
     state.data.packages = state.data.packages.filter(function (p) { return p.id !== id; });
     persist();
     closeModal(pkgModal);
     render();
+  }
+
+  pkgDeleteBtn.addEventListener("click", function () {
+    deletePackage(pkgIdField.value);
   });
 
   // ---------- task modal ----------
@@ -662,24 +701,38 @@
 
   taskForm.addEventListener("submit", function (e) {
     e.preventDefault();
-    var pkg = findPackage(taskPkgField.value);
-    if (!pkg) return;
-    var id = taskIdField.value;
-    var task = id ? findTask(pkg, id) : null;
-    if (!task) {
-      task = { id: uid() };
-      pkg.tasks.push(task);
+    clearFormError(taskForm);
+    if (!taskTitleField.value.trim()) {
+      showFormError(taskForm, "Please enter a task or action.");
+      taskTitleField.focus();
+      return;
     }
-    var ownerValue = taskOwnerField.value === ADD_NEW_VALUE ? "" : taskOwnerField.value;
-    task.title = taskTitleField.value.trim() || "Untitled task";
-    task.notes = taskNotesField.value.trim();
-    task.owner = ownerValue;
-    task.priority = taskPriorityField.value;
-    task.status = taskStatusField.value;
-    task.due = taskDueField.value;
-    persist();
-    closeModal(taskModal);
-    render();
+    try {
+      var pkg = findPackage(taskPkgField.value);
+      if (!pkg) {
+        showFormError(taskForm, "Couldn't find this task's package — it may have been removed. Please close this form and try again.");
+        return;
+      }
+      var id = taskIdField.value;
+      var task = id ? findTask(pkg, id) : null;
+      if (!task) {
+        task = { id: uid() };
+        pkg.tasks.push(task);
+      }
+      var ownerValue = taskOwnerField.value === ADD_NEW_VALUE ? "" : taskOwnerField.value;
+      task.title = taskTitleField.value.trim();
+      task.notes = taskNotesField.value.trim();
+      task.owner = ownerValue;
+      task.priority = taskPriorityField.value;
+      task.status = taskStatusField.value;
+      task.due = taskDueField.value;
+      persist();
+      closeModal(taskModal);
+      render();
+    } catch (err) {
+      console.error(err);
+      showFormError(taskForm, "Something went wrong saving this task. Please try again.");
+    }
   });
 
   taskDeleteBtn.addEventListener("click", function () {
@@ -701,6 +754,7 @@
   function closeModal(modal) {
     modal.hidden = true;
     document.body.style.overflow = "";
+    clearFormError(modal.querySelector("form"));
   }
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
@@ -708,6 +762,18 @@
       closeModal(taskModal);
     }
   });
+
+  function showFormError(form, message) {
+    var box = form.querySelector(".form-error");
+    if (!box) return;
+    box.textContent = message;
+    box.hidden = false;
+  }
+  function clearFormError(form) {
+    if (!form) return;
+    var box = form.querySelector(".form-error");
+    if (box) box.hidden = true;
+  }
 
   function findPackage(id) {
     return state.data.packages.find(function (p) { return p.id === id; });

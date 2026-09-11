@@ -380,6 +380,9 @@ h1, h2, h3 { text-wrap: balance; }
 }
 .icon-btn:hover { background: var(--surface-alt); }
 
+.icon-btn-danger { color: var(--danger); border-color: var(--danger); }
+.icon-btn-danger:hover { background: var(--danger-bg); }
+
 .chevron {
   transition: transform 0.15s ease;
   color: var(--text-muted);
@@ -485,6 +488,16 @@ table.task-table {
 }
 
 .modal h2 { margin-top: 0; font-size: 1.1rem; font-weight: 600; }
+
+.form-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 7px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
 
 .modal form { display: flex; flex-direction: column; gap: 0.85rem; }
 
