@@ -23,10 +23,11 @@ package-based work.
 ## Saving to your account
 
 When this dashboard is opened as a Claude Artifact (the published link), it saves your data
-to your Claude account in the background — the header shows "Saved to your account" once
-connected, so it persists across browser sessions on that artifact link and doesn't depend
-on one browser's local storage. If opened as a plain static page (e.g. via GitHub Pages or
-a local file), there's no Claude account to save to, so it falls back to browser
+server-side in the background — the header shows "Saved to your account" once connected, so
+it persists across browser sessions and devices on that artifact link and doesn't depend on
+one browser's local storage. The artifact is private to your account, so this storage is
+effectively yours alone. If opened as a plain static page instead (e.g. via GitHub Pages or
+a local file), there's no account-linked storage available, so it falls back to browser
 localStorage only, same as before — the header will show "Saved in this browser" in that
 case.
 

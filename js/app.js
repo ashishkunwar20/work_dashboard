@@ -2,7 +2,7 @@
   "use strict";
 
   var STORAGE_KEY = "shafts-package-dashboard-v1";
-  var CLOUD_DOC_PATH_FN = function (uid) { return "data/users/" + uid + "/dashboard"; };
+  var CLOUD_DOC_PATH = "dashboard/state";
 
   var TASK_STATUSES = ["Not Started", "In Progress", "Waiting on Others", "Blocked", "Complete"];
   var PACKAGE_STATUSES = ["On Track", "At Risk", "Delayed", "Complete"];
@@ -167,47 +167,40 @@
       return;
     }
     setSyncStatus("connecting");
-    Promise.all([window.claude.use("db"), window.claude.use("user")])
-      .then(function (results) {
-        var db = results[0];
-        var user = results[1];
-        if (!db || !user || typeof user.id !== "function") {
+    window.claude
+      .use("db")
+      .then(function (db) {
+        if (!db) {
           setSyncStatus("local");
           return;
         }
-        return user.id().then(function (uid) {
-          if (!uid) {
-            setSyncStatus("local");
-            return;
+        cloud.docRef = db.doc(CLOUD_DOC_PATH);
+        return cloud.docRef.get().then(function (snap) {
+          if (snap.exists && snap.data() && Array.isArray(snap.data().packages)) {
+            state.data = normalizeData(snap.data());
+            persistLocal();
+          } else {
+            cloud.docRef.set(state.data);
           }
-          cloud.docRef = db.doc(CLOUD_DOC_PATH_FN(uid));
-          return cloud.docRef.get().then(function (snap) {
-            if (snap.exists && snap.data() && Array.isArray(snap.data().packages)) {
-              state.data = normalizeData(snap.data());
-              persistLocal();
-            } else {
-              cloud.docRef.set(state.data);
-            }
-            cloud.active = true;
-            setSyncStatus("cloud");
-            render();
-            cloud.docRef.onSnapshot(
-              function (snap) {
-                if (snap.metadata.hasPendingWrites) return;
-                if (snap.exists && snap.data()) {
-                  cloud.applyingRemote = true;
-                  state.data = normalizeData(snap.data());
-                  persistLocal();
-                  render();
-                  cloud.applyingRemote = false;
-                }
-              },
-              function () {
-                cloud.active = false;
-                setSyncStatus("local");
+          cloud.active = true;
+          setSyncStatus("cloud");
+          render();
+          cloud.docRef.onSnapshot(
+            function (snap) {
+              if (snap.metadata.hasPendingWrites) return;
+              if (snap.exists && snap.data()) {
+                cloud.applyingRemote = true;
+                state.data = normalizeData(snap.data());
+                persistLocal();
+                render();
+                cloud.applyingRemote = false;
               }
-            );
-          });
+            },
+            function () {
+              cloud.active = false;
+              setSyncStatus("local");
+            }
+          );
         });
       })
       .catch(function () {
