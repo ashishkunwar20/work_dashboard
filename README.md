@@ -8,14 +8,27 @@ package-based work.
 
 - **By Package view** — every package as a card with a progress bar and status chips
   (overdue / waiting on others / blocked). Expand a card to see all its tasks.
-- **Chasing view** — every task across all packages currently "Waiting on Others", so you
-  can see everything you need to chase in one list.
+- **Action With view** — every task across all packages currently "Waiting on Others", so
+  you can see everything you need to chase in one list.
 - **Overdue view** — every task past its due date, regardless of package.
+- **Action With dropdown** — pick who a task sits with from a running list of names/companies
+  instead of retyping them; add a new one inline the first time you need it.
 - **Search & filters** — filter by status, priority, or free-text search across tasks,
   notes, people, and package names.
 - **Add / edit / delete** packages and tasks via simple forms.
-- **Export / Import** — data is stored in your browser (localStorage). Use Export to
-  download a JSON backup, and Import to restore it (e.g. on another device or browser).
+- **Export / Import** — data is stored in your browser (localStorage) as a fallback, and
+  saved to your Claude account automatically when run as a Claude Artifact (see below).
+  Use Export any time to download a JSON backup, and Import to restore it.
+
+## Saving to your account
+
+When this dashboard is opened as a Claude Artifact (the published link), it saves your data
+to your Claude account in the background — the header shows "Saved to your account" once
+connected, so it persists across browser sessions on that artifact link and doesn't depend
+on one browser's local storage. If opened as a plain static page (e.g. via GitHub Pages or
+a local file), there's no Claude account to save to, so it falls back to browser
+localStorage only, same as before — the header will show "Saved in this browser" in that
+case.
 
 ## Running it
 

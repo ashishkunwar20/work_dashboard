@@ -81,6 +81,8 @@
 
 * { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: var(--font-ui);
@@ -121,7 +123,17 @@ h1, h2, h3 { text-wrap: balance; }
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+  align-items: center;
 }
+
+.sync-status {
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+}
+
+.sync-status.cloud { color: #bdeee0; }
 
 .btn {
   border: none;
@@ -506,6 +518,25 @@ table.task-table {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+}
+
+.owner-add-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.owner-add-row[hidden] {
+  display: none;
+}
+
+.owner-add-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.owner-add-row .icon-btn {
+  flex: 0 0 auto;
 }
 
 .modal-actions {

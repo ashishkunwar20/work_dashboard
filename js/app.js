@@ -2,9 +2,11 @@
   "use strict";
 
   var STORAGE_KEY = "shafts-package-dashboard-v1";
+  var CLOUD_DOC_PATH_FN = function (uid) { return "data/users/" + uid + "/dashboard"; };
 
   var TASK_STATUSES = ["Not Started", "In Progress", "Waiting on Others", "Blocked", "Complete"];
   var PACKAGE_STATUSES = ["On Track", "At Risk", "Delayed", "Complete"];
+  var ADD_NEW_VALUE = "__add_new__";
 
   // ---------- seed data (example only — edit via the UI or Import) ----------
   function seedData() {
@@ -14,46 +16,55 @@
       d.setDate(d.getDate() + days);
       return d.toISOString().slice(0, 10);
     }
-    return {
-      packages: [
-        {
-          id: uid(),
-          name: "Shaft 1 – South Portal",
-          code: "SH-01",
-          description: "Example package – replace with your real scope.",
-          status: "At Risk",
-          tasks: [
-            t("Chase design RFI response on shaft lining", "T. Ahmed (Designer)", "Waiting on Others", "High", offset(-2), "Sent second reminder by email."),
-            t("Review temporary works design for propping", "Site Engineer", "In Progress", "Medium", offset(3), ""),
-            t("Confirm piling rig delivery date with subcontractor", "ABC Piling Ltd", "Waiting on Others", "Critical", offset(-1), "Rig needed before slip form starts."),
-            t("Close out ITP for base slab pour", "QA Team", "Not Started", "Low", offset(10), "")
-          ]
-        },
-        {
-          id: uid(),
-          name: "Shaft 2 – Ventilation",
-          code: "SH-02",
-          description: "Example package – replace with your real scope.",
-          status: "On Track",
-          tasks: [
-            t("Obtain updated ground movement monitoring report", "Instrumentation & Monitoring team", "In Progress", "Medium", offset(5), ""),
-            t("Agree access track reinstatement with landowner", "Land & Property", "Not Started", "Medium", offset(14), "")
-          ]
-        },
-        {
-          id: uid(),
-          name: "Shaft 3 – Intervention",
-          code: "SH-03",
-          description: "Example package – replace with your real scope.",
-          status: "Delayed",
-          tasks: [
-            t("Chase approval of method statement for excavation", "Principal Contractor Approvals", "Waiting on Others", "Critical", offset(-5), "Overdue - escalate at next progress meeting."),
-            t("Resolve utility diversion clash with services team", "Utilities Team", "Blocked", "High", offset(-3), "Waiting on updated survey drawing."),
-            t("Sign off temporary works permit", "TW Coordinator", "Complete", "Medium", offset(-10), "")
-          ]
-        }
-      ]
-    };
+    var packages = [
+      {
+        id: uid(),
+        name: "Shaft 1 – South Portal",
+        code: "SH-01",
+        description: "Example package – replace with your real scope.",
+        status: "At Risk",
+        tasks: [
+          t("Chase design RFI response on shaft lining", "T. Ahmed (Designer)", "Waiting on Others", "High", offset(-2), "Sent second reminder by email."),
+          t("Review temporary works design for propping", "Site Engineer", "In Progress", "Medium", offset(3), ""),
+          t("Confirm piling rig delivery date with subcontractor", "ABC Piling Ltd", "Waiting on Others", "Critical", offset(-1), "Rig needed before slip form starts."),
+          t("Close out ITP for base slab pour", "QA Team", "Not Started", "Low", offset(10), "")
+        ]
+      },
+      {
+        id: uid(),
+        name: "Shaft 2 – Ventilation",
+        code: "SH-02",
+        description: "Example package – replace with your real scope.",
+        status: "On Track",
+        tasks: [
+          t("Obtain updated ground movement monitoring report", "Instrumentation & Monitoring team", "In Progress", "Medium", offset(5), ""),
+          t("Agree access track reinstatement with landowner", "Land & Property", "Not Started", "Medium", offset(14), "")
+        ]
+      },
+      {
+        id: uid(),
+        name: "Shaft 3 – Intervention",
+        code: "SH-03",
+        description: "Example package – replace with your real scope.",
+        status: "Delayed",
+        tasks: [
+          t("Chase approval of method statement for excavation", "Principal Contractor Approvals", "Waiting on Others", "Critical", offset(-5), "Overdue - escalate at next progress meeting."),
+          t("Resolve utility diversion clash with services team", "Utilities Team", "Blocked", "High", offset(-3), "Waiting on updated survey drawing."),
+          t("Sign off temporary works permit", "TW Coordinator", "Complete", "Medium", offset(-10), "")
+        ]
+      },
+      emptyPackage("Secondary Steelwork"),
+      emptyPackage("External Services Bracketry"),
+      emptyPackage("Minor Groundworks"),
+      emptyPackage("Welfare"),
+      emptyPackage("Other Misc Works")
+    ];
+
+    return { packages: packages, people: peopleFromPackages(packages) };
+
+    function emptyPackage(name) {
+      return { id: uid(), name: name, code: "", description: "", status: "On Track", tasks: [] };
+    }
 
     function t(title, owner, status, priority, due, notes) {
       return {
@@ -68,11 +79,37 @@
     }
   }
 
+  function peopleFromPackages(packages) {
+    var seen = {};
+    var list = [];
+    packages.forEach(function (pkg) {
+      pkg.tasks.forEach(function (t) {
+        var name = (t.owner || "").trim();
+        if (name && !seen[name.toLowerCase()]) {
+          seen[name.toLowerCase()] = true;
+          list.push(name);
+        }
+      });
+    });
+    return list.sort(function (a, b) { return a.localeCompare(b); });
+  }
+
   function uid() {
     return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
   }
 
-  // ---------- persistence ----------
+  // ---------- data normalization ----------
+  function normalizeData(raw) {
+    var data = raw && typeof raw === "object" ? raw : {};
+    var packages = Array.isArray(data.packages) ? data.packages : [];
+    packages.forEach(function (pkg) {
+      if (!Array.isArray(pkg.tasks)) pkg.tasks = [];
+    });
+    var people = Array.isArray(data.people) ? data.people.slice() : peopleFromPackages(packages);
+    return { packages: packages, people: people };
+  }
+
+  // ---------- local persistence ----------
   var state = {
     data: loadData(),
     search: "",
@@ -85,21 +122,121 @@
   function loadData() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) return normalizeData(JSON.parse(raw));
     } catch (e) {
       console.warn("Could not read saved data, starting fresh.", e);
     }
     var seeded = seedData();
-    persist(seeded);
+    persistLocal(seeded);
     return seeded;
   }
 
-  function persist(data) {
+  function persistLocal(data) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data || state.data));
     } catch (e) {
-      console.error("Could not save data", e);
+      console.error("Could not save data locally", e);
     }
+  }
+
+  function persist() {
+    persistLocal(state.data);
+    cloudScheduleSave();
+  }
+
+  // ---------- cloud (account) sync ----------
+  var cloud = { docRef: null, active: false, saveTimer: null, applyingRemote: false };
+
+  function setSyncStatus(mode) {
+    var el = document.getElementById("sync-status");
+    if (!el) return;
+    var map = {
+      local: { text: "Saved in this browser", cls: "" },
+      connecting: { text: "Connecting…", cls: "" },
+      syncing: { text: "Saving to your account…", cls: "" },
+      cloud: { text: "Saved to your account", cls: "cloud" }
+    };
+    var m = map[mode] || map.local;
+    el.textContent = m.text;
+    el.className = "sync-status " + m.cls;
+  }
+
+  function initCloudSync() {
+    if (!(window.claude && typeof window.claude.use === "function")) {
+      setSyncStatus("local");
+      return;
+    }
+    setSyncStatus("connecting");
+    Promise.all([window.claude.use("db"), window.claude.use("user")])
+      .then(function (results) {
+        var db = results[0];
+        var user = results[1];
+        if (!db || !user || typeof user.id !== "function") {
+          setSyncStatus("local");
+          return;
+        }
+        return user.id().then(function (uid) {
+          if (!uid) {
+            setSyncStatus("local");
+            return;
+          }
+          cloud.docRef = db.doc(CLOUD_DOC_PATH_FN(uid));
+          return cloud.docRef.get().then(function (snap) {
+            if (snap.exists && snap.data() && Array.isArray(snap.data().packages)) {
+              state.data = normalizeData(snap.data());
+              persistLocal();
+            } else {
+              cloud.docRef.set(state.data);
+            }
+            cloud.active = true;
+            setSyncStatus("cloud");
+            render();
+            cloud.docRef.onSnapshot(
+              function (snap) {
+                if (snap.metadata.hasPendingWrites) return;
+                if (snap.exists && snap.data()) {
+                  cloud.applyingRemote = true;
+                  state.data = normalizeData(snap.data());
+                  persistLocal();
+                  render();
+                  cloud.applyingRemote = false;
+                }
+              },
+              function () {
+                cloud.active = false;
+                setSyncStatus("local");
+              }
+            );
+          });
+        });
+      })
+      .catch(function () {
+        setSyncStatus("local");
+      });
+  }
+
+  function cloudScheduleSave() {
+    if (!cloud.active || !cloud.docRef || cloud.applyingRemote) return;
+    setSyncStatus("syncing");
+    clearTimeout(cloud.saveTimer);
+    cloud.saveTimer = setTimeout(function () {
+      cloud.docRef
+        .set(state.data)
+        .then(function () { setSyncStatus("cloud"); })
+        .catch(function () { setSyncStatus("local"); });
+    }, 500);
+  }
+
+  // ---------- people (Action With) ----------
+  function addPerson(rawName) {
+    var name = (rawName || "").trim();
+    if (!name) return "";
+    var existing = state.data.people.filter(function (p) { return p.toLowerCase() === name.toLowerCase(); })[0];
+    if (existing) return existing;
+    state.data.people.push(name);
+    state.data.people.sort(function (a, b) { return a.localeCompare(b); });
+    persist();
+    return name;
   }
 
   // ---------- date helpers ----------
@@ -269,7 +406,7 @@
 
     if (!items.length) {
       el.main.innerHTML = emptyState(
-        view === "chasing" ? "Nothing you're chasing right now" : "No overdue actions",
+        view === "chasing" ? "Nothing waiting on others right now" : "No overdue actions",
         "Nice and clear — check back later or adjust filters.",
         false
       );
@@ -282,7 +419,7 @@
       '<div class="package-card">' +
         '<div class="task-table-wrap">' +
           '<table class="task-table"><thead><tr>' +
-            '<th>Task</th><th>Package</th><th>Chasing</th><th>Priority</th><th>Status</th><th>Due</th><th></th>' +
+            '<th>Task</th><th>Package</th><th>Action With</th><th>Priority</th><th>Status</th><th>Due</th><th></th>' +
           '</tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
         '</div>' +
       '</div>';
@@ -291,7 +428,7 @@
   function renderTaskTable(tasks, pkg) {
     var rows = tasks.map(function (t) { return taskRowHtml(t, pkg, false); }).join("");
     return '<table class="task-table"><thead><tr>' +
-      '<th>Task</th><th>Chasing</th><th>Priority</th><th>Status</th><th>Due</th><th></th>' +
+      '<th>Task</th><th>Action With</th><th>Priority</th><th>Status</th><th>Due</th><th></th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
@@ -456,6 +593,8 @@
   var taskTitleField = document.getElementById("task-title");
   var taskNotesField = document.getElementById("task-notes");
   var taskOwnerField = document.getElementById("task-owner");
+  var taskOwnerAddRow = document.getElementById("task-owner-add-row");
+  var taskOwnerAddInput = document.getElementById("task-owner-add-input");
   var taskPriorityField = document.getElementById("task-priority");
   var taskStatusField = document.getElementById("task-status");
   var taskDueField = document.getElementById("task-due");
@@ -463,6 +602,51 @@
 
   document.getElementById("task-cancel").addEventListener("click", function () { closeModal(taskModal); });
   taskModal.addEventListener("click", function (e) { if (e.target === taskModal) closeModal(taskModal); });
+
+  function populateOwnerSelect(selected) {
+    var people = state.data.people.slice().sort(function (a, b) { return a.localeCompare(b); });
+    var html = '<option value="">— Select —</option>';
+    var found = false;
+    people.forEach(function (p) {
+      var isSel = p === selected;
+      if (isSel) found = true;
+      html += '<option value="' + escapeHtml(p) + '"' + (isSel ? " selected" : "") + '>' + escapeHtml(p) + '</option>';
+    });
+    if (selected && !found) {
+      html += '<option value="' + escapeHtml(selected) + '" selected>' + escapeHtml(selected) + '</option>';
+    }
+    html += '<option value="' + ADD_NEW_VALUE + '">+ Add new name or company…</option>';
+    taskOwnerField.innerHTML = html;
+    taskOwnerAddRow.hidden = true;
+  }
+
+  taskOwnerField.addEventListener("change", function () {
+    if (taskOwnerField.value === ADD_NEW_VALUE) {
+      taskOwnerAddRow.hidden = false;
+      taskOwnerAddInput.value = "";
+      taskOwnerAddInput.focus();
+    }
+  });
+
+  document.getElementById("task-owner-add-confirm").addEventListener("click", function () {
+    var name = addPerson(taskOwnerAddInput.value);
+    if (name) {
+      populateOwnerSelect(name);
+    } else {
+      populateOwnerSelect("");
+    }
+  });
+
+  document.getElementById("task-owner-add-cancel").addEventListener("click", function () {
+    populateOwnerSelect("");
+  });
+
+  taskOwnerAddInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.getElementById("task-owner-add-confirm").click();
+    }
+  });
 
   function openTaskModal(pkgId, taskId) {
     var pkg = findPackage(pkgId);
@@ -473,7 +657,7 @@
     taskPkgField.value = pkg.id;
     taskTitleField.value = task ? task.title : "";
     taskNotesField.value = task ? task.notes : "";
-    taskOwnerField.value = task ? task.owner : "";
+    populateOwnerSelect(task ? task.owner : "");
     taskPriorityField.value = task ? task.priority : "Medium";
     taskStatusField.value = task ? task.status : "Not Started";
     taskDueField.value = task ? task.due : "";
@@ -493,9 +677,10 @@
       task = { id: uid() };
       pkg.tasks.push(task);
     }
+    var ownerValue = taskOwnerField.value === ADD_NEW_VALUE ? "" : taskOwnerField.value;
     task.title = taskTitleField.value.trim() || "Untitled task";
     task.notes = taskNotesField.value.trim();
-    task.owner = taskOwnerField.value.trim();
+    task.owner = ownerValue;
     task.priority = taskPriorityField.value;
     task.status = taskStatusField.value;
     task.due = taskDueField.value;
@@ -560,7 +745,7 @@
         var parsed = JSON.parse(reader.result);
         if (!parsed || !Array.isArray(parsed.packages)) throw new Error("Invalid file format");
         if (!confirm("Import will replace all current data. Continue?")) return;
-        state.data = parsed;
+        state.data = normalizeData(parsed);
         persist();
         state.openPackages = {};
         render();
@@ -574,4 +759,5 @@
 
   // ---------- init ----------
   render();
+  initCloudSync();
 })();

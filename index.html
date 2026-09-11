@@ -17,6 +17,7 @@
     <p class="subtitle">Align JV &ndash; HS2 &middot; Package &amp; action tracker</p>
   </div>
   <div class="header-actions">
+    <span id="sync-status" class="sync-status">Saved in this browser</span>
     <button id="btn-export" class="btn btn-ghost" title="Download a JSON backup of all data">Export</button>
     <label class="btn btn-ghost" title="Restore data from a JSON backup">
       Import
@@ -52,7 +53,7 @@
 
   <div class="view-toggle" id="view-toggle">
     <button class="toggle-btn active" data-view="packages">By Package</button>
-    <button class="toggle-btn" data-view="chasing">Chasing</button>
+    <button class="toggle-btn" data-view="chasing">Action With</button>
     <button class="toggle-btn" data-view="overdue">Overdue</button>
   </div>
 </section>
@@ -111,8 +112,13 @@
         <textarea id="task-notes" rows="2" placeholder="Extra detail, references, links"></textarea>
       </label>
       <div class="form-row">
-        <label>Chasing / assigned to
-          <input id="task-owner" type="text" placeholder="e.g. J. Smith (Designer)" />
+        <label>Action With
+          <select id="task-owner"></select>
+          <div id="task-owner-add-row" class="owner-add-row" hidden>
+            <input id="task-owner-add-input" type="text" placeholder="Name or company" />
+            <button type="button" id="task-owner-add-confirm" class="icon-btn">Add</button>
+            <button type="button" id="task-owner-add-cancel" class="icon-btn">Cancel</button>
+          </div>
         </label>
         <label>Priority
           <select id="task-priority">
