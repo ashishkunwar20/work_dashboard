@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shafts Team Package Dashboard</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-title">
+    <h1>Shafts Team &middot; Package Dashboard</h1>
+    <p class="subtitle">Align JV &ndash; HS2 &middot; Package &amp; action tracker</p>
+  </div>
+  <div class="header-actions">
+    <button id="btn-export" class="btn btn-ghost" title="Download a JSON backup of all data">Export</button>
+    <label class="btn btn-ghost" title="Restore data from a JSON backup">
+      Import
+      <input id="input-import" type="file" accept="application/json" hidden />
+    </label>
+    <button id="btn-add-package" class="btn btn-primary">+ Add Package</button>
+  </div>
+</header>
+
+<section class="summary-strip" id="summary-strip">
+  <!-- summary tiles injected by JS -->
+</section>
+
+<section class="toolbar">
+  <input id="search-input" type="search" placeholder="Search tasks, packages, people..." class="search-input" />
+
+  <select id="filter-status" class="select">
+    <option value="">All statuses</option>
+    <option value="Not Started">Not Started</option>
+    <option value="In Progress">In Progress</option>
+    <option value="Waiting on Others">Waiting on Others</option>
+    <option value="Blocked">Blocked</option>
+    <option value="Complete">Complete</option>
+  </select>
+
+  <select id="filter-priority" class="select">
+    <option value="">All priorities</option>
+    <option value="Critical">Critical</option>
+    <option value="High">High</option>
+    <option value="Medium">Medium</option>
+    <option value="Low">Low</option>
+  </select>
+
+  <div class="view-toggle" id="view-toggle">
+    <button class="toggle-btn active" data-view="packages">By Package</button>
+    <button class="toggle-btn" data-view="chasing">Chasing</button>
+    <button class="toggle-btn" data-view="overdue">Overdue</button>
+  </div>
+</section>
+
+<main id="main-content">
+  <!-- package cards / task lists injected by JS -->
+</main>
+
+<footer class="app-footer">
+  <span>Data is saved locally in this browser. Use <strong>Export</strong> regularly to back up your data.</span>
+</footer>
+
+<!-- Package modal -->
+<div id="package-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="package-modal-title">Add Package</h2>
+    <form id="package-form">
+      <input type="hidden" id="package-id" />
+      <label>Package name *
+        <input id="package-name" type="text" required placeholder="e.g. Shaft 2 – Ventilation" />
+      </label>
+      <label>Package code
+        <input id="package-code" type="text" placeholder="e.g. SH-02" />
+      </label>
+      <label>Description
+        <textarea id="package-description" rows="2" placeholder="Short scope note"></textarea>
+      </label>
+      <label>Package status
+        <select id="package-status">
+          <option>On Track</option>
+          <option>At Risk</option>
+          <option>Delayed</option>
+          <option>Complete</option>
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="package-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="package-delete" hidden>Delete Package</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Task modal -->
+<div id="task-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="task-modal-title">Add Task</h2>
+    <form id="task-form">
+      <input type="hidden" id="task-id" />
+      <input type="hidden" id="task-package-id" />
+      <label>Task / action *
+        <input id="task-title" type="text" required placeholder="e.g. Chase RFI response on shaft lining design" />
+      </label>
+      <label>Notes
+        <textarea id="task-notes" rows="2" placeholder="Extra detail, references, links"></textarea>
+      </label>
+      <div class="form-row">
+        <label>Chasing / assigned to
+          <input id="task-owner" type="text" placeholder="e.g. J. Smith (Designer)" />
+        </label>
+        <label>Priority
+          <select id="task-priority">
+            <option>Critical</option>
+            <option>High</option>
+            <option selected>Medium</option>
+            <option>Low</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Status
+          <select id="task-status">
+            <option>Not Started</option>
+            <option>In Progress</option>
+            <option>Waiting on Others</option>
+            <option>Blocked</option>
+            <option>Complete</option>
+          </select>
+        </label>
+        <label>Due date
+          <input id="task-due" type="date" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="task-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="task-delete" hidden>Delete Task</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
